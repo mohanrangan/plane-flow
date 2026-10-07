@@ -218,10 +218,9 @@ failed deliveries) and resumes any card left in a 🤖 column.
 - `deploy/linux/` – systemd unit and the pinned-network override for Plane
 - `repos/<identifier>/` – one repo per project, always on `main`; card work happens in `worktrees/<identifier>/`
 
-## Switching backend to Copilot
-1. Install and log in to GitHub Copilot CLI.
-2. In each project repo (`repos/<identifier>/`): `specify integration install copilot`
-3. Verify `CopilotBackend` in `orchestrator/backends.py` against the installed CLI
-   (headless flags, `/fleet`, Spec Kit prompt names, usage reporting) — it is untested.
-4. Set `"backend": "copilot"` for one project in `orchestrator/projects.json` (or workspace-wide in
-   `config.json`), `./flowctl restart`.
+## Agents: Claude Code or GitHub Copilot CLI
+Per project (`"backend"` in `orchestrator/projects.json`, `--backend` at import) or workspace-wide
+(`config.json`). Provisioning installs the matching Spec Kit skills. Claude is tested end to end. Copilot is
+wired per its programmatic docs (`copilot -p … --allow-all-tools --no-ask-user --output-format json`,
+`--fleet` for parallel subagents in Implement) but must be verified where Copilot is installed:
+`./flowctl selftest --agent copilot`. Steps: HANDOFF §5 "Agents".

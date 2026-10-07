@@ -11,6 +11,9 @@ fake backend, whatever the workspace default is.
     ./flowctl selftest --full     + constitution draft/ratify, a card through every gate (questions,
                                   clarify, plan, tasks, analyze, implement ∥ tests, verify, review),
                                   then Done → merged to main                                 (~3 min)
+    --agent copilot|claude        run the test project on a REAL agent instead of the fake backend and add an
+                                  agent check (one constitution draft, costs a little); with --full the
+                                  whole card runs on that agent too
     --keep                        leave the test project in Plane for inspection
 
 Exit code 0 only if every check passed.
@@ -101,6 +104,10 @@ class Proj:
         return bool(wait(lambda: self.state(cid) == state, timeout))
 
 
+AGENT = "fake"
+SKILLS = {"claude": ".claude/skills", "copilot": ".github/skills", "fake": ".claude/skills"}
+
+
 def plumbing() -> Proj | None:
     print("orchestrator and webhook")
     for addr in S["listen"]:
@@ -121,7 +128,7 @@ def plumbing() -> Proj | None:
     print("provisioning a new project via Plane's webhook")
     ident = "ST" + "".join(random.choices(string.ascii_uppercase, k=4))
     reg = provision.load_registry()
-    reg[f"pending:{ident}"] = {"backend": "fake"}
+    reg[f"pending:{ident}"] = {"backend": AGENT}
     provision.save_registry(reg)
     r = WS.post("/projects/", json={"name": f"Selftest {ident}", "identifier": ident})   # no special characters
     if not check(r.status_code == 201, f"created Plane project {ident}" + ("" if r.status_code == 201 else f": {r.text[:200]}")):
@@ -136,8 +143,11 @@ def plumbing() -> Proj | None:
     if not ready:
         return p
     p.ident = ident
-    check(p.entry.get("backend") == "fake", "test project runs on the fake backend (no AI cost)")
+    check(p.entry.get("backend") == AGENT, f"test project runs on the {AGENT} backend"
+          + (" (no AI cost)" if AGENT == "fake" else ""))
     check((ROOT / p.entry["repo"] / ".specify").exists(), f"Spec Kit repo created at {p.entry['repo']}")
+    check(bool(list((ROOT / p.entry["repo"] / SKILLS[AGENT]).glob("speckit-*"))),
+          f"Spec Kit skills for {AGENT} are installed ({SKILLS[AGENT]})")
 
     print("guard rails")
     cid = p.card("selftest guard card")
@@ -148,6 +158,20 @@ def plumbing() -> Proj | None:
     check(p.await_comment(cid, "no ratified constitution", 40) and p.await_state(cid, "Backlog", 20),
           "feature work is blocked until the constitution is ratified")
     return p
+
+
+def agent_check(p: Proj) -> None:
+    print(f"real agent: {AGENT}")
+    const = p.entry["constitution"]["card_id"]
+    p.move(const, "Specify 🤖")
+    ok = p.await_comment(const, "ready: version", 900)
+    if not ok and p.seen(const, "failed"):
+        print("    the agent run failed; see the comment on the card and ./flowctl logs")
+    check(ok, f"{AGENT} drafted a constitution through the Spec Kit skill (one headless agent run)")
+    path = ROOT / p.entry["repo"] / ".specify/memory/constitution.md"
+    wt = ROOT / p.entry["worktrees"]
+    drafts = list(wt.glob("*/.specify/memory/constitution.md"))
+    check(any("**Version**" in d.read_text() for d in drafts) or path.exists(), "the draft is in the card's working folder")
 
 
 def full(p: Proj) -> None:
@@ -202,8 +226,13 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--full", action="store_true")
     ap.add_argument("--keep", action="store_true")
+    ap.add_argument("--agent", choices=["claude", "copilot"])
     args = ap.parse_args()
+    global AGENT
+    AGENT = args.agent or "fake"
     p = plumbing()
+    if p is not None and getattr(p, "ident", None) and args.agent and not args.full:
+        agent_check(p)
     if p is not None and getattr(p, "ident", None) and args.full:
         full(p)
     if p is not None and getattr(p, "ident", None) and not args.keep:

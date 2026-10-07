@@ -137,7 +137,22 @@ def ensure_standards(cfg: dict) -> None:
     log.info("created the Standards project")
 
 
-def ensure_repo(path: Path, name: str) -> bool:
+SKILLS_DIR = {"claude": ".claude/skills", "copilot": ".github/skills"}
+
+
+def ensure_integration(path: Path, integration: str) -> bool:
+    """Make sure the Spec Kit skills for this agent exist in the repo (adds them next to others, commits)."""
+    if not (path / ".git").exists() or list((path / SKILLS_DIR.get(integration, ".x")).glob("speckit-*")):
+        return False
+    _run(["specify", "integration", "install", integration, "--force"], path)
+    _run(["git", "add", "-A"], path)
+    _run(["git", "-c", "user.name=flow-bot", "-c", "user.email=flow-bot@agents.example.com", "commit", "-q",
+          "-m", f"Add Spec Kit {integration} integration (plane-flow)"], path)
+    log.info("installed the Spec Kit %s integration in %s", integration, path)
+    return True
+
+
+def ensure_repo(path: Path, name: str, integration: str = "claude") -> bool:
     """Create a Spec Kit repo at `path` if there is none. Returns True if it was created."""
     if not path.resolve().is_relative_to(REPOS_ROOT.resolve()):
         raise RuntimeError(f"{path} is outside the allowed repos folder {REPOS_ROOT}")
@@ -147,7 +162,7 @@ def ensure_repo(path: Path, name: str) -> bool:
     _run(["git", "init", "-q", "-b", "main"], path)
     # --ignore-agent-tools: Spec Kit otherwise refuses when the agent CLI isn't installed yet (e.g. a fresh
     # server); plane-flow checks the agent CLI itself (install.sh) and the backend decides which agent runs.
-    _run(["specify", "init", "--here", "--force", "--non-interactive", "--integration", "claude",
+    _run(["specify", "init", "--here", "--force", "--non-interactive", "--integration", integration,
           "--script", "sh", "--ignore-agent-tools"], path)
     (path / "README.md").write_text(f"# {name}\n\nRepository managed by the Plane → Spec Kit AI pipeline.\n")
     _run(["git", "add", "-A"], path)
@@ -172,7 +187,11 @@ def provision(cfg: dict, project_id: str, reg: dict) -> dict:
     entry["identifier"], entry["name"] = ident, proj["name"]
     entry["states"] = ensure_states(admin)
     ensure_members(cfg, admin)
-    created = ensure_repo(ROOT / entry["repo"], proj["name"]) if entry["repo"].startswith("repos/") else False
+    backend = entry.get("backend") or cfg.get("default_backend", "claude")
+    integration = "copilot" if backend == "copilot" else "claude"
+    repo = Path(entry["repo"]) if Path(entry["repo"]).is_absolute() else ROOT / entry["repo"]
+    created = ensure_repo(repo, proj["name"], integration) if entry["repo"].startswith("repos/") else False
+    ensure_integration(repo, integration)
     reg[project_id] = entry
     save_registry(reg)
     bot = Plane(cfg, project_id, entry["states"])

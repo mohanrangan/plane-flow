@@ -52,6 +52,7 @@ class ClaudeBackend:
     """Claude Code CLI in print mode. Uses the logged-in CLI account; no API key."""
 
     name = "claude"
+    integration = "claude"
     tools = "Bash,Read,Write,Edit,Glob,Grep,Skill,TodoWrite"
     subagent_tools = ("Agent", "Task")  # the subagent tool's current and older name
 
@@ -103,24 +104,29 @@ class ClaudeBackend:
 
 
 class CopilotBackend:
-    """GitHub Copilot CLI. NOT YET VERIFIED: Copilot CLI is not installed on this machine.
+    """GitHub Copilot CLI in programmatic mode, per docs.github.com (Copilot CLI programmatic reference).
 
-    Before switching, check against the installed CLI: the headless flags, the
-    `/fleet` invocation for fan-out, the Spec Kit prompt names its integration
-    installs, and whether it can report usage/cost for metrics.
+    - Headless: `copilot -p PROMPT --allow-all-tools --no-ask-user --output-format json -s`
+    - Fan-out: `--fleet` runs the task with parallel subagents (Copilot's own orchestrator decides the split)
+    - Auth: the CLI's own login, or COPILOT_GITHUB_TOKEN / GH_TOKEN in the environment (passed through)
+    - Spec Kit: the copilot integration installs the same skills under .github/skills/speckit-*
+    Not yet run against a real Copilot login on this project: verify with `./flowctl selftest --agent copilot`.
+    Copilot's JSON output documents no token/cost fields, so cost shows as $0 in the metrics.
     """
 
     name = "copilot"
+    integration = "copilot"          # Spec Kit integration whose skills this agent reads
 
     def skill_prompt(self, skill: str, args: str) -> str:
-        # Spec Kit's copilot integration exposes dotted prompt names.
-        return f"/{skill.replace('speckit-', 'speckit.')} {args}"
+        return (f"Use the `{skill}` skill (`.github/skills/{skill}/SKILL.md`) and follow it exactly.\n\n"
+                f"Input for the skill:\n{args}")
 
     def run(self, prompt: str, cwd: str, env: dict, model: str | None = None,
             fanout: bool = False) -> Result:
-        if fanout:  # Copilot's own fan-out decides how to split the work
-            prompt = "/fleet " + prompt + FANOUT_HINT
-        cmd = ["copilot", "-p", prompt, "--allow-all-tools"]
+        cmd = ["copilot", "-p", prompt + (FANOUT_HINT if fanout else ""), "--allow-all-tools", "--no-ask-user",
+               "--output-format", "json", "-s"]
+        if fanout:
+            cmd.append("--fleet")
         if model:
             cmd += ["--model", model]
         t0 = time.time()
@@ -129,7 +135,23 @@ class CopilotBackend:
                                capture_output=True, timeout=TIMEOUT_S)
         except subprocess.TimeoutExpired:
             return Result(False, f"timed out after {TIMEOUT_S}s", time.time() - t0)
-        return Result(p.returncode == 0, (p.stdout or p.stderr)[-4000:], time.time() - t0)
+        except FileNotFoundError:
+            return Result(False, "the `copilot` CLI is not installed (npm install -g @github/copilot)", 0.0)
+        dur = time.time() - t0
+        final = None
+        for line in p.stdout.splitlines():
+            try:
+                ev = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if ev.get("type") == "workflow.result":
+                final = ev.get("data", {}).get("run", {})
+        if final is None:   # unknown output shape: keep the raw text so the card shows what happened
+            return Result(p.returncode == 0, (p.stdout or p.stderr)[-4000:], dur)
+        result = final.get("result")
+        text = result if isinstance(result, str) else json.dumps(result)[:4000]
+        return Result(p.returncode == 0 and final.get("status") == "completed", text or "", dur,
+                      session_id=str(final.get("runId", "")), raw=final)
 
 
 class FakeBackend:
@@ -140,6 +162,7 @@ class FakeBackend:
     FAKE_CRITICAL makes Analyze report a critical finding."""
 
     name = "fake"
+    integration = "claude"
 
     def skill_prompt(self, skill: str, args: str) -> str:
         return f"/{skill} {args}"

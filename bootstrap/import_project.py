@@ -122,8 +122,7 @@ def main() -> None:
         die(f"{repo} has uncommitted changes on main; commit or stash them first")
     if not (repo / ".specify").is_dir():
         die("no .specify/ folder: this repo doesn't use Spec Kit (run `specify init --here` and commit first)")
-    if not list((repo / ".claude/skills").glob("speckit-*")):
-        die("Spec Kit's Claude skills are missing: run `specify integration install claude` and commit")
+    # the agent's Spec Kit skills (.claude/skills or .github/skills) are added by provisioning if missing
     for name in args.copy:
         if not args.copy_from:
             die("--copy needs --copy-from")

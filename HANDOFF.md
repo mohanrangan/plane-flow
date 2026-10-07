@@ -148,11 +148,34 @@ instead of creating an empty repo)
    own working copy. (Planned: push / open a PR automatically on Done.)
 10. Smoke test: one small card through Specify → … → Acceptance; check Verify ran your real test command.
 
-### Using a different coding agent (Copilot, Gemini, Codex, …)
-`orchestrator/backends.py` isolates the agent. A backend = how to run it headless, how to name a Spec Kit
-step (`/speckit-plan` vs `/speckit.plan`), how to read result/cost. Steps: install that agent's CLI and log
-in; `specify integration install <agent>` in each project repo; add/verify the backend class; set
-`"backend"` in `config.json`. Only Claude is tested; `CopilotBackend` is an unverified stub.
+### Agents (Claude Code, GitHub Copilot CLI) and parallel work
+The agent is chosen per project (`"backend"` in `orchestrator/projects.json`, or `--backend` at import) with
+a workspace default in `config.json`. Provisioning installs that agent's Spec Kit skills into the repo
+(`.claude/skills/speckit-*` for Claude, `.github/skills/speckit-*` for Copilot; both can coexist).
+
+Parallelism happens at three levels:
+| Level | How | Claude | Copilot |
+|---|---|---|---|
+| Many cards at once | each card in its own git worktree; `max_parallel` agent processes | ✅ tested | ✅ same orchestrator code |
+| test-agent ∥ dev-agent on one card | two worktrees, merged before Verify | ✅ tested | ✅ same |
+| One worker splitting its own task (Implement) | Claude: sub-agents (Agent/Task tools allowed); Copilot: `--fleet` | ✅ observed in real runs | ⚠️ wired per the docs, not yet run |
+
+**Copilot on the target machine (not testable on a machine without Copilot):**
+1. Install and log in: `npm install -g @github/copilot`, then `copilot` once interactively to log in
+   (or export `COPILOT_GITHUB_TOKEN` for a headless service — set it in the systemd unit's environment).
+   Your account needs a Copilot plan.
+2. Check headless use works as the orchestrator's user: `copilot -p "reply with ok" --allow-all-tools --no-ask-user -s`
+3. Verify plane-flow end to end on Copilot: `./flowctl selftest --agent copilot` (one real agent run: a constitution
+   draft through the Spec Kit skill; a few cents). `./flowctl selftest --agent copilot --full` runs a whole card,
+   including Implement with `--fleet`.
+4. Use it: per project `"backend": "copilot"` in `orchestrator/projects.json` (restart, or `--backend copilot`
+   at import), or workspace-wide in `config.json`.
+
+What to check if it fails (see `CopilotBackend` in `orchestrator/backends.py`): the flags
+(`-p --allow-all-tools --no-ask-user --output-format json -s [--fleet] [--model]`), the JSON result line
+(`type: workflow.result`, `data.run.status/result`), and whether Copilot picks up the skill from
+`.github/skills/<name>/SKILL.md` when asked to "use the `speckit-…` skill". Copilot's JSON output has no
+documented token/cost fields, so its runs show $0 in the metrics.
 
 ## 6. macOS and Linux (implemented and tested)
 

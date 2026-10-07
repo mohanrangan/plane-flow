@@ -45,6 +45,7 @@ CFG = json.loads((ROOT / ".secrets" / "plane.json").read_text())
 CFG["base_url"] = SETTINGS["plane_api_url"]        # how this host calls Plane
 CFG["public_url"] = SETTINGS["plane_public_url"]   # what people's browsers open
 CFG["dashboard_url"] = SETTINGS["dashboard_url"]
+CFG["default_backend"] = SETTINGS["backend"]
 PORT = SETTINGS["port"]
 MAX_FIX_LOOPS = SETTINGS["max_fix_loops"]
 
