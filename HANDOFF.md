@@ -96,6 +96,20 @@ There are two cases. **A** works fully today. **B** works today with manual step
 
 ### B. An existing repo that already uses Spec Kit
 
+**Use the import command** (the orchestrator must be running; your own working copy is not modified):
+```sh
+uv run bootstrap/import_project.py --ident SHOP --name "My Shop" \
+    --repo-url https://github.com/<you>/<repo>.git \
+    --test-cmd 'cp ../../../repos/shop/.env.local . 2>/dev/null; npm ci && npm run lint && npm test' \
+    --copy-from ~/projects/<repo> --copy .env.local
+```
+It clones into `repos/<ident>`, creates and provisions the Plane project, adopts the ratified constitution
+(locked 📜 page, card Done — or leaves the 📜 card for drafting if the constitution is still a template), and
+adds existing features as cards with their Spec/Plan/Tasks pages (finished → Done, unfinished → Backlog with
+a note). `--repo-path` uses an existing checkout in place instead of cloning. Before importing, commit/merge
+and push the repo's `main`. The manual steps below are what the command automates.
+
+
 **Prepare the repo (in your own working copy)**
 1. Commit everything, merge finished feature branches into `main`, push to GitHub. The pipeline always
    branches from and merges into `main`, and refuses to work with uncommitted changes.
@@ -206,9 +220,8 @@ styles. The orchestrator re-points the Plane webhook to `webhook_url` at every s
    project is one command.
 
 ## 8. Backlog (in the order I'd do it)
-1. **`bootstrap/import_project.py`** — automate §5B: clone, register (via a `pending:<IDENT>` registry
-   entry, already supported), adopt the ratified constitution (locked 📜 page, card Done), import existing
-   features as Done cards with reference pages, optional "resume" of a half-done feature at Analyze → Implement.
+1. **Resume an imported half-done feature** inside the pipeline (map the card to its existing `specs/NNN-…`
+   folder, start at Analyze → Implement). `import_project.py` already covers everything else (§5B).
 2. **More per-project settings** in `projects.json` (`test_cmd` and `backend` exist): `worktree_setup`
    (link shared dependencies, copy `.env` files), `feature_naming` (`sequential` → `003-…` vs card key).
 3. **Per-project testing brief / domain playbook** as a Plane page that test-agent reads (replaces the
@@ -244,5 +257,4 @@ styles. The orchestrator re-points the Plane webhook to `webhook_url` at every s
 ## 10. Picking this up with an AI assistant
 Open a Claude Code session in the plane-flow folder; `CLAUDE.md` points it here (and to `LOCAL.md` if present). Useful first prompts:
 - "Run the §6.4 checks after any change to settings, networking or install."
-- "Build `bootstrap/import_project.py` per §8.1 and test it on a fresh clone of my pilot project
-  (details in LOCAL.md)."
+- "Import my next project with bootstrap/import_project.py (§5B) and run one small card through Specify."

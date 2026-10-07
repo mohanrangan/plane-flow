@@ -81,7 +81,7 @@ What this project adds on top of a stock Plane install and stock Spec Kit:
 - Images and diagrams in pages don't reach the agents yet (planned: `.drawio.png`/`.drawio` support).
 - Copilot backend unverified; the constitution's draft step reuses the "Specify" column name.
 - The verify test command defaults to Python/pytest for every new project; set `test_cmd` (and `backend`)
-  per project in `orchestrator/projects.json`. Importing existing Spec Kit repos is manual (HANDOFF §5B).
+  per project in `orchestrator/projects.json`. Existing Spec Kit repos: `bootstrap/import_project.py` (HANDOFF §5B).
 - Metrics refresh reads each card's history from Plane; fine at small scale, needs event logging at 100s of projects.
 - Strict constitutions make the Analyze gate dig deep: expect rework rounds and higher cost.
 - Single machine: localhost only, the agents use your personal Claude login, no sandbox per job.
