@@ -1218,6 +1218,17 @@ class Handler(BaseHTTPRequestHandler):
                          "dashboard": f"http://localhost:{PORT}/dashboard"})
 
     def do_POST(self):
+        if self.path.startswith("/admin/reload/"):
+            # Local admin call (e.g. import_project.py): re-read one project's settings without a restart.
+            if not hmac.compare_digest(self.headers.get("X-Plane-Flow-Token", ""), CFG["webhook"]["secret"]):
+                return self._send(401, {"error": "bad token"})
+            ident = self.path.rsplit("/", 1)[-1].upper()
+            pid = next((k for k, v in provision.projects_in(provision.load_registry()).items()
+                        if v.get("identifier") == ident), None)
+            if not pid:
+                return self._send(404, {"error": f"unknown project {ident}"})
+            proj = onboard(pid)
+            return self._send(200, {"result": f"reloaded {ident}" + (f", constitution v{proj.ratified}" if proj and proj.ratified else "")})
         raw = self.rfile.read(int(self.headers.get("content-length", 0)))
         sig = self.headers.get("X-Plane-Signature", "")
         secret = CFG["webhook"]["secret"].encode()
