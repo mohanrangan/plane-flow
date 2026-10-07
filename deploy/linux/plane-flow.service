@@ -1,0 +1,18 @@
+# systemd unit for the plane-flow orchestrator (Linux). install.sh fills in USER and DIR:
+#   sudo cp deploy/linux/plane-flow.service /etc/systemd/system/ && sudo systemctl enable --now plane-flow
+# The user must have a working `claude` login (claude setup-token) and be in the docker group.
+[Unit]
+Description=plane-flow orchestrator (Plane -> Spec Kit AI pipeline)
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+User=__USER__
+WorkingDirectory=__DIR__
+Environment=PATH=__PATH__
+ExecStart=__UV__ run --quiet orchestrator/flow.py
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

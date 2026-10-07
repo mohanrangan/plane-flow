@@ -1,0 +1,9 @@
+# Copy next to Plane's docker-compose.yml on Linux (install.sh does this).
+# Pins Plane's Docker network so its gateway address never changes; the orchestrator listens on that
+# gateway (plane_network_gateway in orchestrator/config.json) and Plane's webhooks are sent there.
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: 172.30.0.0/24
+          gateway: 172.30.0.1

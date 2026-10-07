@@ -1,0 +1,16 @@
+.secrets/
+orchestrator/flow.db
+orchestrator/flow.log
+orchestrator/flow.pid
+plane/.env
+toy-project/
+worktrees/
+repos/
+orchestrator/projects.json
+__pycache__/
+*.pyc
+LOCAL.md
+orchestrator/config.json
+plane/docker-compose.yml
+plane/variables.env
+plane/docker-compose.override.yml

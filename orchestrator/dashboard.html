@@ -1,0 +1,330 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI Flow · __PROJECT__</title>
+<style>
+  :root {
+    --surface-0: #f4f4f2; --surface-1: #fcfcfb; --border: #e3e2de; --grid: #ecebe7;
+    --text-primary: #0b0b0b; --text-secondary: #52514e; --text-muted: #77766f;
+    --series-1: #2a78d6; --series-1-soft: rgba(42,120,214,.10);
+    --good: #0ca30c; --critical: #d03b3b; --warning: #b77b00;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --surface-0: #121211; --surface-1: #1a1a19; --border: #2e2e2c; --grid: #262624;
+      --text-primary: #ffffff; --text-secondary: #c3c2b7; --text-muted: #8f8e86;
+      --series-1: #3987e5; --series-1-soft: rgba(57,135,229,.16);
+      --good: #2fbf2f; --critical: #e66767; --warning: #fab219;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--surface-0); color: var(--text-primary);
+         font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, sans-serif; }
+  main { max-width: 1180px; margin: 0 auto; padding: 20px 16px 48px; }
+  header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 16px; margin-bottom: 16px; }
+  h1 { font-size: 20px; margin: 0; font-weight: 650; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-secondary);
+       margin: 0 0 10px; font-weight: 600; }
+  a { color: var(--series-1); text-decoration: none; } a:hover { text-decoration: underline; }
+  .links { display: flex; gap: 14px; font-size: 13px; }
+  .status { margin-left: auto; font-size: 12px; color: var(--text-secondary); display: flex; align-items: center; gap: 6px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-muted); }
+  .dot.on { background: var(--good); }
+  .panel { background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; margin-bottom: 14px; }
+  .grid2 { display: grid; grid-template-columns: 3fr 2fr; gap: 14px; }
+  @media (max-width: 860px) { .grid2 { grid-template-columns: 1fr; } }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-bottom: 14px; }
+  .tile { background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }
+  .tile .v { font-size: 22px; font-weight: 650; font-variant-numeric: tabular-nums; }
+  .tile .l { font-size: 12px; color: var(--text-secondary); }
+  .tile.hero .v { font-size: 28px; }
+  .live { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
+  .run { border: 1px solid var(--border); border-left: 3px solid var(--series-1); border-radius: 8px; padding: 9px 11px; }
+  .run .who { font-weight: 650; } .run .what { color: var(--text-secondary); }
+  .run .meta { font-size: 12px; color: var(--text-muted); display: flex; justify-content: space-between; margin-top: 4px; }
+  .run .el { font-variant-numeric: tabular-nums; color: var(--text-primary); font-weight: 600; }
+  .group { font-size: 12px; color: var(--text-secondary); margin: 4px 0 6px; grid-column: 1 / -1; }
+  .empty { color: var(--text-muted); padding: 6px 0; grid-column: 1 / -1; }
+  .pulse { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--series-1);
+           margin-right: 6px; animation: p 1.4s ease-in-out infinite; vertical-align: middle; }
+  @keyframes p { 50% { opacity: .25; } }
+  @media (prefers-reduced-motion: reduce) { .pulse { animation: none; } }
+  table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--grid); white-space: nowrap; }
+  th { font-size: 12px; color: var(--text-secondary); font-weight: 600; }
+  td.num, th.num { text-align: right; }
+  td.title { white-space: normal; min-width: 180px; }
+  .scroll { overflow-x: auto; }
+  .ok { color: var(--good); } .bad { color: var(--critical); }
+  .feed { list-style: none; margin: 0; padding: 0; max-height: 330px; overflow-y: auto; }
+  .feed li { padding: 5px 0; border-bottom: 1px solid var(--grid); display: flex; gap: 10px; }
+  .feed time { color: var(--text-muted); font-size: 12px; min-width: 58px; font-variant-numeric: tabular-nums; }
+  svg text { fill: var(--text-muted); font-size: 11px; }
+  .chart { position: relative; }
+  .tip { position: absolute; pointer-events: none; background: var(--surface-1); border: 1px solid var(--border);
+         border-radius: 8px; padding: 7px 10px; font-size: 12px; box-shadow: 0 4px 14px rgba(0,0,0,.12);
+         display: none; z-index: 2; min-width: 170px; }
+  .tip strong { font-size: 14px; display: block; color: var(--text-primary); }
+  .tip span { color: var(--text-secondary); display: block; }
+  details summary { cursor: pointer; color: var(--text-secondary); font-size: 12px; margin-top: 8px; }
+  .muted { color: var(--text-muted); font-size: 12px; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1 id="title">AI Flow · __PROJECT__</h1>
+    <nav class="links"><a href="/dashboard">← All projects</a>
+      <a id="l-board" target="_blank" rel="noopener">Board in Plane ↗</a>
+      <a id="l-metrics" target="_blank" rel="noopener">Metrics page ↗</a></nav>
+    <div class="status"><span class="dot" id="dot"></span><span id="conn">connecting…</span></div>
+  </header>
+
+  <section class="panel">
+    <h2>Working now</h2>
+    <div id="live" class="live"></div>
+  </section>
+
+  <section class="tiles" id="tiles"></section>
+
+  <div class="grid2">
+    <section class="panel">
+      <h2>Cumulative AI cost</h2>
+      <div class="chart" id="cum"></div>
+      <details><summary>Show data</summary><div class="scroll"><table id="cum-table"></table></div></details>
+    </section>
+    <section class="panel">
+      <h2>Cost by worker</h2>
+      <div class="chart" id="workers"></div>
+    </section>
+  </div>
+
+  <div class="grid2">
+    <section class="panel">
+      <h2>Cards</h2>
+      <div class="scroll"><table id="cards"></table></div>
+    </section>
+    <section class="panel">
+      <h2>Recent activity</h2>
+      <ul class="feed" id="feed"></ul>
+    </section>
+  </div>
+  <p class="muted">Cost is the API-price equivalent reported by the agent CLI per run (real spend on API billing; a usage
+    measure on a subscription). Updates are pushed by the orchestrator as runs start and finish; nothing polls.
+    Approve and act on cards in Plane.</p>
+</main>
+
+<script>
+const P = "__PROJECT__";
+let S = null, loadTimer = null, loadedAt = Date.now();
+
+const $ = id => document.getElementById(id);
+function el(tag, attrs, ...kids) {
+  const n = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) {
+    if (v == null) continue;
+    if (k === "class") n.className = v; else n.setAttribute(k, v);
+  }
+  for (const k of kids) n.append(k instanceof Node ? k : document.createTextNode(k ?? ""));
+  return n;
+}
+const money = v => "$" + (v || 0).toFixed(2);
+function dur(s) {
+  if (s == null) return "–";
+  if (s < 60) return Math.round(s) + "s";
+  if (s < 3600) return Math.floor(s / 60) + "m " + String(Math.round(s % 60)).padStart(2, "0") + "s";
+  if (s < 86400) return (s / 3600).toFixed(1) + "h";
+  return (s / 86400).toFixed(1) + "d";
+}
+const hhmm = ts => new Date(ts * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+const cardLink = (key, label) => el("a", { href: S.links.browse + key + "/", target: "_blank", rel: "noopener" }, label || key);
+
+async function load() {
+  const r = await fetch(`/api/${P}/summary`);
+  S = await r.json();
+  loadedAt = Date.now();
+  render();
+}
+function scheduleLoad() { clearTimeout(loadTimer); loadTimer = setTimeout(load, 250); }
+
+function connect() {
+  const es = new EventSource(`/api/${P}/events`);
+  es.onopen = () => { $("dot").className = "dot on"; $("conn").textContent = "live"; load(); };
+  es.onerror = () => { $("dot").className = "dot"; $("conn").textContent = "reconnecting…"; };
+  es.onmessage = scheduleLoad;
+}
+
+function render() {
+  $("l-board").href = S.links.board;
+  $("title").textContent = `AI Flow · ${S.name} (${P})`; document.title = `AI Flow · ${P}`;
+  if (S.links.metrics_page) $("l-metrics").href = S.links.metrics_page;
+  renderLive(); renderTiles(); renderCum(); renderWorkers(); renderCards(); renderFeed();
+}
+
+function renderLive() {
+  const box = $("live"); box.replaceChildren();
+  if (!S.live.length) { box.append(el("div", { class: "empty" }, "No workers running — the pipeline is idle.")); return; }
+  const byCard = {};
+  for (const r of S.live) (byCard[r.card] ||= []).push(r);
+  for (const [card, runs] of Object.entries(byCard)) {
+    box.append(el("div", { class: "group" }, cardLink(card), " · ", runs[0].title,
+      runs.length > 1 ? `  —  ${runs.length} workers in parallel` : ""));
+    for (const r of runs) {
+      box.append(el("div", { class: "run" },
+        el("div", {}, el("span", { class: "pulse" }), el("span", { class: "who" }, r.worker), " ",
+           el("span", { class: "what" }, r.phase)),
+        el("div", { class: "meta" },
+          el("span", {}, `${r.backend} · ${r.branch}`),
+          el("span", { class: "el", "data-start": r.started }, dur(r.elapsed_s)))));
+    }
+  }
+}
+
+function renderTiles() {
+  const h = S.headline;
+  const tiles = [
+    ["hero", money(h.cumulative_cost), "Cumulative AI cost"],
+    ["", money(h.cost_7d), "Last 7 days"],
+    ["", h.delivered, "Features delivered"],
+    ["", h.in_flight, "In flight"],
+    ["", money(h.avg_cost_per_feature), "Avg cost / feature"],
+    ["", h.first_pass_rate == null ? "–" : Math.round(h.first_pass_rate * 100) + "%", "First-pass rate"],
+    ["", dur(h.avg_lead_s), "Avg lead time"],
+    ["", dur(h.avg_human_wait_s), "Avg wait on humans"],
+    ["", `${h.agent_runs} / ${h.failed_runs}`, "Agent runs / failed"],
+  ];
+  $("tiles").replaceChildren(...tiles.map(([c, v, l]) =>
+    el("div", { class: "tile " + c }, el("div", { class: "v" }, String(v)), el("div", { class: "l" }, l))));
+}
+
+const SVGNS = "http://www.w3.org/2000/svg";
+function s(tag, attrs) { const n = document.createElementNS(SVGNS, tag); for (const k in attrs) n.setAttribute(k, attrs[k]); return n; }
+function niceMax(v) { if (v <= 0) return 1; const e = Math.pow(10, Math.floor(Math.log10(v))); for (const m of [1, 2, 2.5, 5, 10]) if (m * e >= v) return m * e; return 10 * e; }
+function tip(box, x, y, strong, ...lines) {
+  let t = box.querySelector(".tip");
+  if (!t) { t = el("div", { class: "tip" }); box.append(t); }
+  t.replaceChildren(el("strong", {}, strong), ...lines.map(l => el("span", {}, l)));
+  t.style.display = "block";
+  const w = t.offsetWidth, bw = box.clientWidth;
+  t.style.left = Math.min(Math.max(0, x + 12), bw - w) + "px";
+  t.style.top = Math.max(0, y - 10) + "px";
+}
+const hideTip = box => { const t = box.querySelector(".tip"); if (t) t.style.display = "none"; };
+
+function renderCum() {
+  const box = $("cum"); box.replaceChildren();
+  const pts = S.series;
+  if (!pts.length) { box.append(el("div", { class: "empty" }, "No runs yet.")); return; }
+  const W = box.clientWidth || 600, H = 230, m = { l: 52, r: 14, t: 12, b: 26 };
+  const t0 = pts[0].ts - 60, t1 = Math.max(S.now, pts[pts.length - 1].ts);
+  const yMax = niceMax(pts[pts.length - 1].cumulative);
+  const x = t => m.l + (t - t0) / (t1 - t0 || 1) * (W - m.l - m.r);
+  const y = v => H - m.b - v / yMax * (H - m.t - m.b);
+  const svg = s("svg", { width: W, height: H, role: "img", "aria-label": "Cumulative AI cost over time" });
+  for (let i = 0; i <= 4; i++) {
+    const v = yMax * i / 4;
+    svg.append(s("line", { x1: m.l, x2: W - m.r, y1: y(v), y2: y(v), stroke: "var(--grid)", "stroke-width": 1 }));
+    const tx = s("text", { x: m.l - 8, y: y(v) + 4, "text-anchor": "end" }); tx.textContent = "$" + v.toFixed(v < 10 ? 2 : 0); svg.append(tx);
+  }
+  const span = t1 - t0, fmt = span > 86400 * 2 ? (ts => new Date(ts * 1000).toLocaleDateString([], { month: "short", day: "numeric" })) : hhmm;
+  for (let i = 0; i <= 3; i++) {
+    const ts = t0 + span * i / 3;
+    const tx = s("text", { x: x(ts), y: H - 8, "text-anchor": i === 0 ? "start" : i === 3 ? "end" : "middle" }); tx.textContent = fmt(ts); svg.append(tx);
+  }
+  // step line: cost is added when a run finishes
+  let d = `M${x(t0)},${y(0)}`, prev = 0;
+  for (const p of pts) { d += ` L${x(p.ts)},${y(prev)} L${x(p.ts)},${y(p.cumulative)}`; prev = p.cumulative; }
+  d += ` L${x(t1)},${y(prev)}`;
+  svg.append(s("path", { d: d + ` L${x(t1)},${y(0)} Z`, fill: "var(--series-1-soft)", stroke: "none" }));
+  svg.append(s("path", { d, fill: "none", stroke: "var(--series-1)", "stroke-width": 2, "stroke-linejoin": "round" }));
+  const last = pts[pts.length - 1];
+  const lbl = s("text", { x: Math.min(x(last.ts) + 6, W - m.r - 4), y: y(last.cumulative) - 8, "text-anchor": x(last.ts) > W - 80 ? "end" : "start" });
+  lbl.textContent = money(last.cumulative); lbl.style.fill = "var(--text-primary)"; lbl.style.fontWeight = 600; svg.append(lbl);
+  const hair = s("line", { y1: m.t, y2: H - m.b, stroke: "var(--text-muted)", "stroke-width": 1, "stroke-dasharray": "3 3", visibility: "hidden" });
+  const dot = s("circle", { r: 4.5, fill: "var(--series-1)", stroke: "var(--surface-1)", "stroke-width": 2, visibility: "hidden" });
+  svg.append(hair, dot);
+  const hit = s("rect", { x: m.l, y: 0, width: W - m.l - m.r, height: H, fill: "transparent" });
+  hit.addEventListener("pointermove", e => {
+    const r = svg.getBoundingClientRect(), px = e.clientX - r.left;
+    let best = pts[0]; for (const p of pts) if (Math.abs(x(p.ts) - px) < Math.abs(x(best.ts) - px)) best = p;
+    hair.setAttribute("x1", x(best.ts)); hair.setAttribute("x2", x(best.ts)); hair.setAttribute("visibility", "visible");
+    dot.setAttribute("cx", x(best.ts)); dot.setAttribute("cy", y(best.cumulative)); dot.setAttribute("visibility", "visible");
+    tip(box, x(best.ts), y(best.cumulative), money(best.cumulative) + " cumulative",
+        `${best.card} · ${best.worker} · ${best.phase}`, `+${money(best.cost)} at ${hhmm(best.ts)}`);
+  });
+  hit.addEventListener("pointerleave", () => { hair.setAttribute("visibility", "hidden"); dot.setAttribute("visibility", "hidden"); hideTip(box); });
+  svg.append(hit);
+  box.append(svg);
+  $("cum-table").replaceChildren(
+    el("tr", {}, el("th", {}, "Time"), el("th", {}, "Card"), el("th", {}, "Worker"), el("th", {}, "Phase"),
+       el("th", { class: "num" }, "Cost"), el("th", { class: "num" }, "Cumulative")),
+    ...pts.slice().reverse().map(p => el("tr", {}, el("td", {}, hhmm(p.ts)), el("td", {}, p.card), el("td", {}, p.worker),
+       el("td", {}, p.phase), el("td", { class: "num" }, money(p.cost)), el("td", { class: "num" }, money(p.cumulative)))));
+}
+
+function renderWorkers() {
+  const box = $("workers"); box.replaceChildren();
+  const ws = S.workers;
+  if (!ws.length) { box.append(el("div", { class: "empty" }, "No runs yet.")); return; }
+  const W = box.clientWidth || 380, row = 30, m = { l: 150, r: 56 }, H = ws.length * row + 6;
+  const max = Math.max(...ws.map(w => w.cost)) || 1;
+  const svg = s("svg", { width: W, height: H, role: "img", "aria-label": "Cost by worker" });
+  ws.forEach((w, i) => {
+    const yy = i * row + 6, bw = Math.max(0, (W - m.l - m.r) * w.cost / max), bh = 16;
+    const name = s("text", { x: m.l - 10, y: yy + 12, "text-anchor": "end" }); name.textContent = w.worker;
+    name.style.fill = "var(--text-secondary)"; svg.append(name);
+    if (bw > 0) {
+      const r = Math.min(4, bw / 2), x0 = m.l, x1 = m.l + bw;  // rounded data end, square at the baseline
+      svg.append(s("path", { d: `M${x0},${yy} H${x1 - r} Q${x1},${yy} ${x1},${yy + r} V${yy + bh - r} Q${x1},${yy + bh} ${x1 - r},${yy + bh} H${x0} Z`, fill: "var(--series-1)" }));
+    }
+    const val = s("text", { x: m.l + bw + 6, y: yy + 12 }); val.textContent = money(w.cost);
+    val.style.fill = "var(--text-primary)"; svg.append(val);
+    const hit = s("rect", { x: 0, y: yy - 6, width: W, height: row, fill: "transparent" });
+    hit.addEventListener("pointermove", e => {
+      const b = svg.getBoundingClientRect();
+      tip(box, e.clientX - b.left, yy, money(w.cost), w.worker,
+          `${w.runs} runs · ${w.failed} failed`, `avg ${money(w.avg_cost)} · ${dur(w.avg_s)}`,
+          w.subagents ? `${w.subagents} sub-agents` : "no sub-agents");
+    });
+    hit.addEventListener("pointerleave", () => hideTip(box));
+    svg.append(hit);
+  });
+  box.append(svg);
+}
+
+function renderCards() {
+  const head = el("tr", {}, ...["Card", "State", "Runs", "Rework", "Verify", "Cost", "Agent time", "Wait on humans"]
+    .map((h, i) => el("th", { class: i >= 2 ? "num" : null }, h)));
+  const rows = S.cards.slice().reverse().map(c => el("tr", {},
+    el("td", { class: "title" }, cardLink(c.key), " ", c.name.length > 48 ? c.name.slice(0, 47) + "…" : c.name),
+    el("td", {}, c.state), el("td", { class: "num" }, String(c.runs)), el("td", { class: "num" }, String(c.rework)),
+    el("td", { class: "num" }, c.verify_runs ? `${c.verify_runs - c.verify_fails}/${c.verify_runs} ✓` : "–"),
+    el("td", { class: "num" }, money(c.cost)), el("td", { class: "num" }, dur(c.agent_s)),
+    el("td", { class: "num" }, dur(c.human_s))));
+  $("cards").replaceChildren(head, ...rows);
+}
+
+function renderFeed() {
+  const items = S.feed.map(ev => {
+    const mark = ev.kind === "finish" ? (ev.ok ? el("span", { class: "ok" }, "✓ ") : el("span", { class: "bad" }, "✕ ")) :
+                 ev.kind === "start" ? el("span", { class: "pulse" }) : "";
+    const extra = ev.kind === "finish" ? ` (${dur(ev.duration_s)}${ev.cost ? ", " + money(ev.cost) : ""})` : "";
+    return el("li", {}, el("time", {}, hhmm(ev.ts)),
+      el("span", {}, mark, ev.card ? cardLink(ev.card) : "", ev.card ? " " : "", ev.text + extra));
+  });
+  $("feed").replaceChildren(...(items.length ? items : [el("li", { class: "empty" }, "Nothing yet since the orchestrator started.")]));
+}
+
+// Elapsed timers tick locally, measured on the server's clock (S.now) to avoid clock skew.
+setInterval(() => {
+  if (!S) return;
+  const nowServer = S.now + (Date.now() - loadedAt) / 1000;
+  document.querySelectorAll(".run .el").forEach(n => { n.textContent = dur(nowServer - parseFloat(n.dataset.start)); });
+}, 1000);
+window.addEventListener("resize", () => S && (renderCum(), renderWorkers()));
+connect();
+</script>
+</body>
+</html>

@@ -1,0 +1,30 @@
+{
+  "_comment": "Copy to orchestrator/config.json (git-ignored) and keep only what you change. Every key is optional; defaults are in orchestrator/settings.py. install.sh writes this file for you.",
+  "backend": "claude",
+  "port": 8787,
+  "_listen_macos": [
+    "127.0.0.1"
+  ],
+  "_listen_linux": [
+    "127.0.0.1",
+    "172.30.0.1"
+  ],
+  "_webhook_url_macos": "http://host.docker.internal:8787/webhook",
+  "_webhook_url_linux": "http://172.30.0.1:8787/webhook",
+  "plane_api_url": "http://localhost:8080",
+  "plane_public_url": "http://localhost:8080",
+  "dashboard_url": "http://localhost:8787",
+  "plane_network_gateway": "172.30.0.1",
+  "manage_plane": true,
+  "plane_compose_dir": "plane",
+  "plane_compose_project": "plane",
+  "workspace_name": "AI Flow",
+  "workspace_slug": "ai-flow",
+  "max_parallel": 4,
+  "max_fix_loops": 2,
+  "models": {},
+  "styles": {
+    "question_color": "peach",
+    "question_italic": true
+  }
+}

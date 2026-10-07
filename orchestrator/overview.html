@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI Flow · All projects</title>
+<style>
+  :root {
+    --surface-0: #f4f4f2; --surface-1: #fcfcfb; --border: #e3e2de; --grid: #ecebe7;
+    --text-primary: #0b0b0b; --text-secondary: #52514e; --text-muted: #77766f;
+    --series-1: #2a78d6; --series-1-soft: rgba(42,120,214,.10);
+    --good: #0ca30c; --critical: #d03b3b; --warning: #b77b00;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --surface-0: #121211; --surface-1: #1a1a19; --border: #2e2e2c; --grid: #262624;
+      --text-primary: #ffffff; --text-secondary: #c3c2b7; --text-muted: #8f8e86;
+      --series-1: #3987e5; --series-1-soft: rgba(57,135,229,.16);
+      --good: #2fbf2f; --critical: #e66767; --warning: #fab219;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--surface-0); color: var(--text-primary);
+         font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, sans-serif; }
+  main { max-width: 1180px; margin: 0 auto; padding: 20px 16px 48px; }
+  header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 16px; margin-bottom: 16px; }
+  h1 { font-size: 20px; margin: 0; font-weight: 650; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-secondary);
+       margin: 0 0 10px; font-weight: 600; }
+  a { color: var(--series-1); text-decoration: none; } a:hover { text-decoration: underline; }
+  .links { display: flex; gap: 14px; font-size: 13px; }
+  .status { margin-left: auto; font-size: 12px; color: var(--text-secondary); display: flex; align-items: center; gap: 6px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-muted); }
+  .dot.on { background: var(--good); }
+  .panel { background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; margin-bottom: 14px; }
+  .grid2 { display: grid; grid-template-columns: 3fr 2fr; gap: 14px; }
+  @media (max-width: 860px) { .grid2 { grid-template-columns: 1fr; } }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-bottom: 14px; }
+  .tile { background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }
+  .tile .v { font-size: 22px; font-weight: 650; font-variant-numeric: tabular-nums; }
+  .tile .l { font-size: 12px; color: var(--text-secondary); }
+  .tile.hero .v { font-size: 28px; }
+  .live { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
+  .run { border: 1px solid var(--border); border-left: 3px solid var(--series-1); border-radius: 8px; padding: 9px 11px; }
+  .run .who { font-weight: 650; } .run .what { color: var(--text-secondary); }
+  .run .meta { font-size: 12px; color: var(--text-muted); display: flex; justify-content: space-between; margin-top: 4px; }
+  .run .el { font-variant-numeric: tabular-nums; color: var(--text-primary); font-weight: 600; }
+  .group { font-size: 12px; color: var(--text-secondary); margin: 4px 0 6px; grid-column: 1 / -1; }
+  .empty { color: var(--text-muted); padding: 6px 0; grid-column: 1 / -1; }
+  .pulse { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--series-1);
+           margin-right: 6px; animation: p 1.4s ease-in-out infinite; vertical-align: middle; }
+  @keyframes p { 50% { opacity: .25; } }
+  @media (prefers-reduced-motion: reduce) { .pulse { animation: none; } }
+  table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--grid); white-space: nowrap; }
+  th { font-size: 12px; color: var(--text-secondary); font-weight: 600; }
+  td.num, th.num { text-align: right; }
+  td.title { white-space: normal; min-width: 180px; }
+  .scroll { overflow-x: auto; }
+  .ok { color: var(--good); } .bad { color: var(--critical); }
+  .feed { list-style: none; margin: 0; padding: 0; max-height: 330px; overflow-y: auto; }
+  .feed li { padding: 5px 0; border-bottom: 1px solid var(--grid); display: flex; gap: 10px; }
+  .feed time { color: var(--text-muted); font-size: 12px; min-width: 58px; font-variant-numeric: tabular-nums; }
+  svg text { fill: var(--text-muted); font-size: 11px; }
+  .chart { position: relative; }
+  .tip { position: absolute; pointer-events: none; background: var(--surface-1); border: 1px solid var(--border);
+         border-radius: 8px; padding: 7px 10px; font-size: 12px; box-shadow: 0 4px 14px rgba(0,0,0,.12);
+         display: none; z-index: 2; min-width: 170px; }
+  .tip strong { font-size: 14px; display: block; color: var(--text-primary); }
+  .tip span { color: var(--text-secondary); display: block; }
+  details summary { cursor: pointer; color: var(--text-secondary); font-size: 12px; margin-top: 8px; }
+  .muted { color: var(--text-muted); font-size: 12px; }
+</style>
+<style>
+  .filter { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; }
+  .filter input { font: inherit; padding: 6px 10px; border: 1px solid var(--border); border-radius: 8px;
+                  background: var(--surface-1); color: var(--text-primary); min-width: 240px; }
+  th.sort { cursor: pointer; user-select: none; } th.sort:hover { color: var(--text-primary); }
+  .barcell { width: 140px; }
+  .bar { height: 10px; background: var(--series-1); border-radius: 0 4px 4px 0; min-width: 0; }
+  .running { color: var(--series-1); font-weight: 600; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>AI Flow · All projects</h1>
+    <div class="status"><span class="dot" id="dot"></span><span id="conn">connecting…</span></div>
+  </header>
+  <section class="tiles" id="tiles"></section>
+  <section class="panel">
+    <h2>Working now</h2>
+    <div id="live" class="live"></div>
+  </section>
+  <section class="panel">
+    <h2>Projects</h2>
+    <div class="filter"><input id="q" type="search" placeholder="Filter projects…" aria-label="Filter projects">
+      <span class="muted" id="count"></span></div>
+    <div class="scroll"><table id="projects"></table></div>
+  </section>
+  <section class="panel">
+    <h2>Recent activity, all projects</h2>
+    <ul class="feed" id="feed"></ul>
+  </section>
+  <p class="muted">Cost is the API-price equivalent reported by the agent CLI per run. Every Plane project in the
+    workspace is AI-managed; new projects appear here automatically. Approve and act on cards in Plane.</p>
+</main>
+<script>
+let S = null, loadedAt = Date.now(), loadTimer = null, sortKey = "cumulative_cost", sortDir = -1;
+const $ = id => document.getElementById(id);
+function el(tag, attrs, ...kids) {
+  const n = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) { if (v == null) continue; if (k === "class") n.className = v; else n.setAttribute(k, v); }
+  for (const k of kids) n.append(k instanceof Node ? k : document.createTextNode(k ?? ""));
+  return n;
+}
+const money = v => "$" + (v || 0).toFixed(2);
+function dur(s) {
+  if (s == null) return "–";
+  if (s < 60) return Math.round(s) + "s";
+  if (s < 3600) return Math.floor(s / 60) + "m " + String(Math.round(s % 60)).padStart(2, "0") + "s";
+  if (s < 86400) return (s / 3600).toFixed(1) + "h";
+  return (s / 86400).toFixed(1) + "d";
+}
+const hhmm = ts => new Date(ts * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+
+async function load() { S = await (await fetch("/api/overview")).json(); loadedAt = Date.now(); render(); }
+function connect() {
+  const es = new EventSource("/api/events");
+  es.onopen = () => { $("dot").className = "dot on"; $("conn").textContent = "live"; load(); };
+  es.onerror = () => { $("dot").className = "dot"; $("conn").textContent = "reconnecting…"; };
+  es.onmessage = () => { clearTimeout(loadTimer); loadTimer = setTimeout(load, 300); };
+}
+function render() {
+  const t = S.total;
+  $("tiles").replaceChildren(...[
+    ["hero", money(t.cumulative_cost), "Cumulative AI cost, all projects"], ["", money(t.cost_7d), "Last 7 days"],
+    ["", String(S.projects.length), "Projects"], ["", String(t.running), "Workers running now"],
+    ["", String(t.in_flight), "Cards in flight"], ["", String(t.delivered), "Features delivered"],
+    ["", `${t.agent_runs} / ${t.failed_runs}`, "Agent runs / failed"],
+  ].map(([c, v, l]) => el("div", { class: "tile " + c }, el("div", { class: "v" }, v), el("div", { class: "l" }, l))));
+  renderLive(); renderProjects(); renderFeed();
+}
+function renderLive() {
+  const box = $("live"); box.replaceChildren();
+  if (!S.live.length) { box.append(el("div", { class: "empty" }, "No workers running — every project is idle.")); return; }
+  const groups = {};
+  for (const r of S.live) (groups[r.card] ||= []).push(r);
+  for (const [card, runs] of Object.entries(groups)) {
+    box.append(el("div", { class: "group" }, el("a", { href: "/dashboard/" + runs[0].project }, runs[0].project), " · ",
+      el("a", { href: projLinks(runs[0].project).browse + card + "/", target: "_blank", rel: "noopener" }, card), " · ", runs[0].title,
+      runs.length > 1 ? `  —  ${runs.length} workers in parallel` : ""));
+    for (const r of runs) box.append(el("div", { class: "run" },
+      el("div", {}, el("span", { class: "pulse" }), el("span", { class: "who" }, r.worker), " ", el("span", { class: "what" }, r.phase)),
+      el("div", { class: "meta" }, el("span", {}, `${r.backend} · ${r.branch}`), el("span", { class: "el", "data-start": r.started }, dur(r.elapsed_s)))));
+  }
+}
+const projLinks = ident => (S.projects.find(p => p.ident === ident) || { links: { browse: "#" } }).links;
+const COLS = [["ident", "Project"], ["running", "Running"], ["in_flight", "In flight"], ["delivered", "Delivered"],
+  ["first_pass_rate", "First-pass"], ["cost_7d", "7 days"], ["cumulative_cost", "Cumulative cost"]];
+function renderProjects() {
+  const f = $("q").value.trim().toLowerCase();
+  const rows = S.projects.filter(p => !f || (p.ident + " " + p.name).toLowerCase().includes(f))
+    .sort((a, b) => ((a[sortKey] ?? -1) > (b[sortKey] ?? -1) ? 1 : (a[sortKey] ?? -1) < (b[sortKey] ?? -1) ? -1 : 0) * sortDir);
+  $("count").textContent = `${rows.length} of ${S.projects.length}`;
+  const max = Math.max(...S.projects.map(p => p.cumulative_cost), 0.01);
+  const head = el("tr", {}, ...COLS.map(([k, label], i) => {
+    const th = el("th", { class: "sort" + (i ? " num" : "") }, label + (k === sortKey ? (sortDir < 0 ? " ↓" : " ↑") : ""));
+    th.onclick = () => { sortDir = k === sortKey ? -sortDir : -1; sortKey = k; renderProjects(); };
+    return th;
+  }), el("th", { class: "barcell" }, ""), el("th", {}, ""));
+  $("projects").replaceChildren(head, ...rows.map(p => el("tr", {},
+    el("td", { class: "title" }, el("a", { href: "/dashboard/" + p.ident }, p.ident), " ", p.name),
+    el("td", { class: "num" + (p.running ? " running" : "") }, String(p.running)),
+    el("td", { class: "num" }, String(p.in_flight)), el("td", { class: "num" }, String(p.delivered)),
+    el("td", { class: "num" }, p.first_pass_rate == null ? "–" : Math.round(p.first_pass_rate * 100) + "%"),
+    el("td", { class: "num" }, money(p.cost_7d)), el("td", { class: "num" }, money(p.cumulative_cost)),
+    el("td", { class: "barcell" }, (() => { const b = el("div", { class: "bar", title: money(p.cumulative_cost) }); b.style.width = (100 * p.cumulative_cost / max) + "%"; return b; })()),
+    el("td", {}, el("a", { href: p.links.board, target: "_blank", rel: "noopener" }, "Board ↗")))));
+}
+function renderFeed() {
+  const items = S.feed.map(ev => {
+    const mark = ev.kind === "finish" ? (ev.ok ? el("span", { class: "ok" }, "✓ ") : el("span", { class: "bad" }, "✕ ")) :
+                 ev.kind === "start" ? el("span", { class: "pulse" }) : "";
+    const extra = ev.kind === "finish" ? ` (${dur(ev.duration_s)}${ev.cost ? ", " + money(ev.cost) : ""})` : "";
+    return el("li", {}, el("time", {}, hhmm(ev.ts)), el("span", {}, mark,
+      ev.project ? el("a", { href: "/dashboard/" + ev.project }, ev.project) : "", ev.project ? " " : "",
+      (ev.card ? ev.card + " " : "") + ev.text + extra));
+  });
+  $("feed").replaceChildren(...(items.length ? items : [el("li", { class: "empty" }, "Nothing yet since the orchestrator started.")]));
+}
+setInterval(() => {
+  if (!S) return;
+  const nowServer = S.now + (Date.now() - loadedAt) / 1000;
+  document.querySelectorAll(".run .el").forEach(n => { n.textContent = dur(nowServer - parseFloat(n.dataset.start)); });
+}, 1000);
+$("q").addEventListener("input", () => S && renderProjects());
+connect();
+</script>
+</body>
+</html>

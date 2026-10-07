@@ -1,0 +1,43 @@
+#!/bin/sh
+# Start/stop plane-flow: (Colima on macOS) + Plane's containers (if managed) + the orchestrator.
+#   flowctl start | stop [all] | restart | status | logs [N] | selftest [--full]
+cd "$(dirname "$0")" || exit 1
+PID=orchestrator/flow.pid; LOG=orchestrator/flow.log
+setting() { python3 orchestrator/settings.py get "$1"; }
+MANAGE_PLANE=$(setting manage_plane); PLANE_DIR=$(setting plane_compose_dir); PLANE_PROJECT=$(setting plane_compose_project)
+PORT=$(setting port); LISTEN=$(setting listen)
+UNIT_ACTIVE=false
+command -v systemctl >/dev/null 2>&1 && systemctl is-active --quiet plane-flow 2>/dev/null && UNIT_ACTIVE=true
+
+plane() { (cd "$PLANE_DIR" && docker compose -p "$PLANE_PROJECT" "$@"); }
+orch_running() { [ -f $PID ] && kill -0 "$(cat $PID)" 2>/dev/null; }
+start_orch() {
+  if command -v systemctl >/dev/null 2>&1 && systemctl list-unit-files plane-flow.service >/dev/null 2>&1 \
+     && systemctl list-unit-files plane-flow.service | grep -q plane-flow; then
+    sudo systemctl start plane-flow; return
+  fi
+  orch_running || { nohup uv run --quiet orchestrator/flow.py >>$LOG 2>&1 & echo $! >$PID; }
+}
+stop_orch() {
+  if $UNIT_ACTIVE; then sudo systemctl stop plane-flow; fi
+  orch_running && kill "$(cat $PID)"; rm -f $PID
+}
+
+case "$1" in
+  start)
+    if [ "$(uname)" = Darwin ]; then colima status >/dev/null 2>&1 || colima start; fi
+    [ "$MANAGE_PLANE" = true ] && plane up -d
+    start_orch
+    echo "Plane: $(setting plane_public_url)   dashboard: $(setting dashboard_url)/dashboard" ;;
+  stop)
+    stop_orch
+    [ "$2" = all ] && [ "$MANAGE_PLANE" = true ] && plane stop ;;
+  restart) stop_orch; sleep 1; exec "$0" start ;;
+  status)
+    if $UNIT_ACTIVE; then echo "orchestrator: running (systemd)"; elif orch_running; then echo "orchestrator: running (pid $(cat $PID))"; else echo "orchestrator: stopped"; fi
+    for a in $LISTEN; do printf "%s:%s  " "$a" "$PORT"; curl -s -m 3 "http://$a:$PORT/" | head -c 80; echo; done
+    [ "$MANAGE_PLANE" = true ] && plane ps --format 'table {{.Service}}\t{{.Status}}' ;;
+  logs) if $UNIT_ACTIVE; then journalctl -u plane-flow -n "${2:-40}" -f; else tail -n "${2:-40}" -f $LOG; fi ;;
+  selftest) shift; exec uv run --quiet bootstrap/selftest.py "$@" ;;
+  *) echo "usage: flowctl start|stop [all]|restart|status|logs [N]|selftest [--full]" ;;
+esac
